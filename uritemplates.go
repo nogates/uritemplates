@@ -56,23 +56,23 @@ func escape(s string, allowReserved bool) (escaped string) {
 
 // A UriTemplate is a parsed representation of a URI template.
 type UriTemplate struct {
-	raw   string
-	parts []templatePart
+	Parts []TemplatePart
+	Raw   string
 }
 
 // Parse parses a URI template string into a UriTemplate object.
 func Parse(rawtemplate string) (template *UriTemplate, err error) {
 	template = new(UriTemplate)
-	template.raw = rawtemplate
+	template.Raw = rawtemplate
 	split := strings.Split(rawtemplate, "{")
-	template.parts = make([]templatePart, len(split)*2-1)
+	template.Parts = make([]TemplatePart, len(split)*2-1)
 	for i, s := range split {
 		if i == 0 {
 			if strings.Contains(s, "}") {
 				err = errors.New("unexpected }")
 				break
 			}
-			template.parts[i].raw = s
+			template.Parts[i].Raw = s
 		} else {
 			subsplit := strings.Split(s, "}")
 			if len(subsplit) != 2 {
@@ -80,11 +80,11 @@ func Parse(rawtemplate string) (template *UriTemplate, err error) {
 				break
 			}
 			expression := subsplit[0]
-			template.parts[i*2-1], err = parseExpression(expression)
+			template.Parts[i*2-1], err = parseExpression(expression)
 			if err != nil {
 				break
 			}
-			template.parts[i*2].raw = subsplit[1]
+			template.Parts[i*2].Raw = subsplit[1]
 		}
 	}
 	if err != nil {
@@ -94,68 +94,68 @@ func Parse(rawtemplate string) (template *UriTemplate, err error) {
 }
 
 func (t UriTemplate) String() string {
-	return t.raw
+	return t.Raw
 }
 
-type templatePart struct {
-	raw           string
-	terms         []templateTerm
-	first         string
-	sep           string
-	named         bool
-	ifemp         string
-	allowReserved bool
+type TemplatePart struct {
+	Terms         []TemplateTerm
+	Raw           string
+	First         string
+	Sep           string
+	Named         bool
+	Ifemp         string
+	AllowReserved bool
 }
 
-type templateTerm struct {
-	name     string
-	explode  bool
-	truncate int
+type TemplateTerm struct {
+	Name     string
+	Explode  bool
+	Truncate int
 }
 
-func parseExpression(expression string) (result templatePart, err error) {
+func parseExpression(expression string) (result TemplatePart, err error) {
 	switch expression[0] {
 	case '+':
-		result.sep = ","
-		result.allowReserved = true
+		result.Sep = ","
+		result.AllowReserved = true
 		expression = expression[1:]
 	case '.':
-		result.first = "."
-		result.sep = "."
+		result.First = "."
+		result.Sep = "."
 		expression = expression[1:]
 	case '/':
-		result.first = "/"
-		result.sep = "/"
+		result.First = "/"
+		result.Sep = "/"
 		expression = expression[1:]
 	case ';':
-		result.first = ";"
-		result.sep = ";"
-		result.named = true
+		result.First = ";"
+		result.Sep = ";"
+		result.Named = true
 		expression = expression[1:]
 	case '?':
-		result.first = "?"
-		result.sep = "&"
-		result.named = true
-		result.ifemp = "="
+		result.First = "?"
+		result.Sep = "&"
+		result.Named = true
+		result.Ifemp = "="
 		expression = expression[1:]
 	case '&':
-		result.first = "&"
-		result.sep = "&"
-		result.named = true
-		result.ifemp = "="
+		result.First = "&"
+		result.Sep = "&"
+		result.Named = true
+		result.Ifemp = "="
 		expression = expression[1:]
 	case '#':
-		result.first = "#"
-		result.sep = ","
-		result.allowReserved = true
+		result.First = "#"
+		result.Sep = ","
+		result.AllowReserved = true
 		expression = expression[1:]
 	default:
-		result.sep = ","
+		result.Sep = ","
 	}
 	rawterms := strings.Split(expression, ",")
-	result.terms = make([]templateTerm, len(rawterms))
+	result.Terms = make([]TemplateTerm, len(rawterms))
 	for i, raw := range rawterms {
-		result.terms[i], err = parseTerm(raw)
+		result.Terms[i], err = parseTerm(raw)
 		if err != nil {
 			break
 		}
@@ -163,26 +163,26 @@ func parseExpression(expression string) (result templatePart, err error) {
 	return result, err
 }
 
-func parseTerm(term string) (result templateTerm, err error) {
+func parseTerm(term string) (result TemplateTerm, err error) {
 	if strings.HasSuffix(term, "*") {
-		result.explode = true
+		result.Explode = true
 		term = term[:len(term)-1]
 	}
 	split := strings.Split(term, ":")
 	if len(split) == 1 {
-		result.name = term
+		result.Name = term
 	} else if len(split) == 2 {
-		result.name = split[0]
+		result.Name = split[0]
 		var parsed int64
 		parsed, err = strconv.ParseInt(split[1], 10, 0)
-		result.truncate = int(parsed)
+		result.Truncate = int(parsed)
 	} else {
 		err = errors.New("multiple colons in same term")
 	}
-	if !validname.MatchString(result.name) {
-		err = errors.New("not a valid name: " + result.name)
+	if !validname.MatchString(result.Name) {
+		err = errors.New("not a valid name: " + result.Name)
 	}
-	if result.explode && result.truncate > 0 {
+	if result.Explode && result.Truncate > 0 {
 		err = errors.New("both explode and prefix modifers on same term")
 	}
 	return result, err
@@ -190,15 +190,15 @@ func parseTerm(term string) (result templateTerm, err error) {
 
 // Names returns the names of all variables within the template.
 func (self *UriTemplate) Names() []string {
-	names := make([]string, 0, len(self.parts))
+	names := make([]string, 0, len(self.Parts))
 
-	for _, p := range self.parts {
-		if len(p.raw) > 0 || len(p.terms) == 0 {
+	for _, p := range self.Parts {
+		if len(p.Raw) > 0 || len(p.Terms) == 0 {
 			continue
 		}
 
-		for _, term := range p.terms {
-			names = append(names, term.name)
+		for _, term := range p.Terms {
+			names = append(names, term.Name)
 		}
 	}
 
@@ -216,7 +216,7 @@ func (self *UriTemplate) Expand(value interface{}) (string, error) {
 		}
 	}
 	var buf bytes.Buffer
-	for _, p := range self.parts {
+	for _, p := range self.Parts {
 		err := p.expand(&buf, values)
 		if err != nil {
 			return "", err
@@ -225,16 +225,16 @@ func (self *UriTemplate) Expand(value interface{}) (string, error) {
 	return buf.String(), nil
 }
 
-func (self *templatePart) expand(buf *bytes.Buffer, values map[string]interface{}) error {
-	if len(self.raw) > 0 {
-		buf.WriteString(self.raw)
+func (self *TemplatePart) expand(buf *bytes.Buffer, values map[string]interface{}) error {
+	if len(self.Raw) > 0 {
+		buf.WriteString(self.Raw)
 		return nil
 	}
 	var zeroLen = buf.Len()
-	buf.WriteString(self.first)
+	buf.WriteString(self.First)
 	var firstLen = buf.Len()
-	for _, term := range self.terms {
-		value, exists := values[term.name]
+	for _, term := range self.Terms {
+		value, exists := values[term.Name]
 		// do not add to the template if the value is nil
 		if !exists || value == nil {
 			continue
@@ -247,7 +247,7 @@ func (self *templatePart) expand(buf *bytes.Buffer, values map[string]interface{
 		}
 
 		if buf.Len() != firstLen {
-			buf.WriteString(self.sep)
+			buf.WriteString(self.Sep)
 		}
 		switch v := value.(type) {
 		case string:
@@ -255,13 +255,13 @@ func (self *templatePart) expand(buf *bytes.Buffer, values map[string]interface{
 		case []interface{}:
 			self.expandArray(buf, term, v)
 		case map[string]interface{}:
-			if term.truncate > 0 {
+			if term.Truncate > 0 {
 				return errors.New("cannot truncate a map expansion")
 			}
 			self.expandMap(buf, term, v)
 		default:
 			if m, ismap := struct2map(value); ismap {
-				if term.truncate > 0 {
+				if term.Truncate > 0 {
 					return errors.New("cannot truncate a map expansion")
 				}
 				self.expandMap(buf, term, m)
@@ -279,34 +279,34 @@ func (self *templatePart) expand(buf *bytes.Buffer, values map[string]interface{
 	return nil
 }
 
-func (self *templatePart) expandName(buf *bytes.Buffer, name string, empty bool) {
-	if self.named {
+func (self *TemplatePart) expandName(buf *bytes.Buffer, name string, empty bool) {
+	if self.Named {
 		buf.WriteString(name)
 		if empty {
-			buf.WriteString(self.ifemp)
+			buf.WriteString(self.Ifemp)
 		} else {
 			buf.WriteString("=")
 		}
 	}
 }
 
-func (self *templatePart) expandString(buf *bytes.Buffer, t templateTerm, s string) {
-	if len(s) > t.truncate && t.truncate > 0 {
-		s = s[:t.truncate]
+func (self *TemplatePart) expandString(buf *bytes.Buffer, t TemplateTerm, s string) {
+	if len(s) > t.Truncate && t.Truncate > 0 {
+		s = s[:t.Truncate]
 	}
-	self.expandName(buf, t.name, len(s) == 0)
-	buf.WriteString(escape(s, self.allowReserved))
+	self.expandName(buf, t.Name, len(s) == 0)
+	buf.WriteString(escape(s, self.AllowReserved))
 }
 
-func (self *templatePart) expandArray(buf *bytes.Buffer, t templateTerm, a []interface{}) {
+func (self *TemplatePart) expandArray(buf *bytes.Buffer, t TemplateTerm, a []interface{}) {
 	if len(a) == 0 {
 		return
-	} else if !t.explode {
-		self.expandName(buf, t.name, false)
+	} else if !t.Explode {
+		self.expandName(buf, t.Name, false)
 	}
 	for i, value := range a {
-		if t.explode && i > 0 {
-			buf.WriteString(self.sep)
+		if t.Explode && i > 0 {
+			buf.WriteString(self.Sep)
 		} else if i > 0 {
 			buf.WriteString(",")
 		}
@@ -317,28 +317,28 @@ func (self *templatePart) expandArray(buf *bytes.Buffer, t templateTerm, a []int
 		default:
 			s = fmt.Sprintf("%v", v)
 		}
-		if len(s) > t.truncate && t.truncate > 0 {
-			s = s[:t.truncate]
+		if len(s) > t.Truncate && t.Truncate > 0 {
+			s = s[:t.Truncate]
 		}
-		if self.named && t.explode {
-			self.expandName(buf, t.name, len(s) == 0)
+		if self.Named && t.Explode {
+			self.expandName(buf, t.Name, len(s) == 0)
 		}
-		buf.WriteString(escape(s, self.allowReserved))
+		buf.WriteString(escape(s, self.AllowReserved))
 	}
 }
 
-func (self *templatePart) expandMap(buf *bytes.Buffer, t templateTerm, m map[string]interface{}) {
+func (self *TemplatePart) expandMap(buf *bytes.Buffer, t TemplateTerm, m map[string]interface{}) {
 	if len(m) == 0 {
 		return
 	}
-	if !t.explode {
-		self.expandName(buf, t.name, len(m) == 0)
+	if !t.Explode {
+		self.expandName(buf, t.Name, len(m) == 0)
 	}
 	var firstLen = buf.Len()
 	for k, value := range m {
 		if firstLen != buf.Len() {
-			if t.explode {
-				buf.WriteString(self.sep)
+			if t.Explode {
+				buf.WriteString(self.Sep)
 			} else {
 				buf.WriteString(",")
 			}
@@ -350,14 +350,14 @@ func (self *templatePart) expandMap(buf *bytes.Buffer, t templateTerm, m map[str
 		default:
 			s = fmt.Sprintf("%v", v)
 		}
-		if t.explode {
-			buf.WriteString(escape(k, self.allowReserved))
+		if t.Explode {
+			buf.WriteString(escape(k, self.AllowReserved))
 			buf.WriteRune('=')
-			buf.WriteString(escape(s, self.allowReserved))
+			buf.WriteString(escape(s, self.AllowReserved))
 		} else {
-			buf.WriteString(escape(k, self.allowReserved))
+			buf.WriteString(escape(k, self.AllowReserved))
 			buf.WriteRune(',')
-			buf.WriteString(escape(s, self.allowReserved))
+			buf.WriteString(escape(s, self.AllowReserved))
 		}
 	}
 }
