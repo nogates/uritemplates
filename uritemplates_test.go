@@ -120,6 +120,10 @@ func TestSpecExamples(t *testing.T) {
 	runSpec(t, "tests/spec-examples.json")
 }
 
+func TestSpecBySectionExamples(t *testing.T) {
+	runSpec(t, "tests/spec-examples-by-section.json")
+}
+
 var parse_tests = []struct {
 	Template string
 	ParseOk  bool
@@ -226,7 +230,7 @@ func TestUriTemplate_Expand(t *testing.T) {
 				t.Errorf("%d: unexpected error: %v", itest, err)
 			}
 		} else if !test.ExpandOk {
-			t.Errorf("%d: expected error, got none.", itest, err)
+			t.Errorf("%d: expected error, got none.", itest)
 		} else if expanded != test.Expected {
 			t.Errorf("%d: expected %v, got %v", itest, test.Expected, expanded)
 		}

@@ -235,9 +235,17 @@ func (self *templatePart) expand(buf *bytes.Buffer, values map[string]interface{
 	var firstLen = buf.Len()
 	for _, term := range self.terms {
 		value, exists := values[term.name]
-		if !exists {
+		// do not add to the template if the value is nil
+		if !exists || value == nil {
 			continue
 		}
+
+		// if the value is an empty string, change the position
+		// so the modifier is kept:  "X{.empty}" => "X.", rather than just "X",
+		if value == "" {
+			zeroLen = firstLen
+		}
+
 		if buf.Len() != firstLen {
 			buf.WriteString(self.sep)
 		}
@@ -356,6 +364,7 @@ func (self *templatePart) expandMap(buf *bytes.Buffer, t templateTerm, m map[str
 
 func struct2map(v interface{}) (map[string]interface{}, bool) {
 	value := reflect.ValueOf(v)
+
 	switch value.Type().Kind() {
 	case reflect.Ptr:
 		return struct2map(value.Elem().Interface())
