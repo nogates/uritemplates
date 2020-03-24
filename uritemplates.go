@@ -114,6 +114,10 @@ type TemplateTerm struct {
 }
 
 func parseExpression(expression string) (result TemplatePart, err error) {
+	if expression == "" {
+		return result, fmt.Errorf("expected expression to be non-empty")
+	}
+
 	switch expression[0] {
 	case '+':
 		result.Sep = ","
